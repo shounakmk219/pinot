@@ -40,6 +40,7 @@ import org.apache.pinot.common.utils.SchemaUtils;
 import org.apache.pinot.common.utils.config.AccessControlUserConfigUtils;
 import org.apache.pinot.common.utils.config.TableConfigUtils;
 import org.apache.pinot.spi.config.ConfigUtils;
+import org.apache.pinot.spi.config.DatabaseConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.config.user.UserConfig;
@@ -64,6 +65,7 @@ public class ZKMetadataProvider {
   private static final String PROPERTYSTORE_SCHEMAS_PREFIX = "/SCHEMAS";
   private static final String PROPERTYSTORE_INSTANCE_PARTITIONS_PREFIX = "/INSTANCE_PARTITIONS";
   private static final String PROPERTYSTORE_TABLE_CONFIGS_PREFIX = "/CONFIGS/TABLE";
+  private static final String PROPERTYSTORE_DATABASE_PREFIX = "/CONFIGS/DATABASE";
   private static final String PROPERTYSTORE_USER_CONFIGS_PREFIX = "/CONFIGS/USER";
   private static final String PROPERTYSTORE_INSTANCE_CONFIGS_PREFIX = "/CONFIGS/INSTANCE";
   private static final String PROPERTYSTORE_CLUSTER_CONFIGS_PREFIX = "/CONFIGS/CLUSTER";
@@ -164,6 +166,10 @@ public class ZKMetadataProvider {
 
   public static String constructPropertyStorePathForSchema(String schemaName) {
     return StringUtil.join("/", PROPERTYSTORE_SCHEMAS_PREFIX, schemaName);
+  }
+
+  public static String constructPropertyStorePathForDatabase(String dbId) {
+    return StringUtil.join("/", PROPERTYSTORE_DATABASE_PREFIX, dbId);
   }
 
   public static String constructPropertyStorePathForInstancePartitions(String instancePartitionsName) {
@@ -428,6 +434,39 @@ public class ZKMetadataProvider {
       LOGGER.error("Caught exception while creating table config from ZNRecord: {}", znRecord.getId(), e);
       return null;
     }
+  }
+
+  @Nullable
+  public static DatabaseConfig getDatabase(ZkHelixPropertyStore<ZNRecord> propertyStore, String dbId) {
+    try {
+      ZNRecord dbZNRecord =
+          propertyStore.get(constructPropertyStorePathForDatabase(dbId), null, AccessOption.PERSISTENT);
+      if (dbZNRecord == null) {
+        return null;
+      }
+
+      return new DatabaseConfig(dbId, dbZNRecord.getSimpleField("databaseName"));
+    } catch (Exception e) {
+      LOGGER.error("Caught exception while getting database: {}", dbId, e);
+      return null;
+    }
+  }
+
+  public static List<DatabaseConfig> getDatabases(ZkHelixPropertyStore<ZNRecord> propertyStore) {
+    List<ZNRecord> dbs = propertyStore.getChildren(PROPERTYSTORE_DATABASE_PREFIX, null, AccessOption.PERSISTENT, 1, 1);
+    if (dbs == null) {
+      return new ArrayList<>();
+    }
+    return dbs.stream()
+        .map(zn -> new DatabaseConfig(zn.getId(), zn.getSimpleField("databaseName")))
+        .collect(Collectors.toList());
+  }
+
+  public static void setDatabase(ZkHelixPropertyStore<ZNRecord> propertyStore, DatabaseConfig database) {
+    ZNRecord record = new ZNRecord(database.getId());
+    record.setSimpleField("id", database.getId());
+    record.setSimpleField("databaseName", database.getDatabaseName());
+    propertyStore.set(constructPropertyStorePathForDatabase(database.getId()), record, AccessOption.PERSISTENT);
   }
 
   public static void setSchema(ZkHelixPropertyStore<ZNRecord> propertyStore, Schema schema) {

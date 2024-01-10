@@ -92,6 +92,7 @@ import org.apache.pinot.common.assignment.InstanceAssignmentConfigUtils;
 import org.apache.pinot.common.assignment.InstancePartitions;
 import org.apache.pinot.common.assignment.InstancePartitionsUtils;
 import org.apache.pinot.common.config.provider.TableCache;
+import org.apache.pinot.common.exception.DatabaseAlreadyExistsException;
 import org.apache.pinot.common.exception.InvalidConfigException;
 import org.apache.pinot.common.exception.SchemaAlreadyExistsException;
 import org.apache.pinot.common.exception.SchemaBackwardIncompatibleException;
@@ -153,6 +154,7 @@ import org.apache.pinot.controller.helix.core.rebalance.ZkBasedTableRebalanceObs
 import org.apache.pinot.controller.helix.core.util.ZKMetadataUtils;
 import org.apache.pinot.controller.helix.starter.HelixConfig;
 import org.apache.pinot.segment.spi.SegmentMetadata;
+import org.apache.pinot.spi.config.DatabaseConfig;
 import org.apache.pinot.spi.config.instance.Instance;
 import org.apache.pinot.spi.config.table.IndexingConfig;
 import org.apache.pinot.spi.config.table.SegmentsValidationAndRetentionConfig;
@@ -1377,6 +1379,40 @@ public class PinotHelixResourceManager {
 
   public Set<InstanceConfig> getAllInstancesConfigsForBrokerTenant(String tenantName) {
     return HelixHelper.getBrokerInstanceConfigsForTenant(HelixHelper.getInstanceConfigs(_helixZkManager), tenantName);
+  }
+
+  /*
+   * Database APIs
+   */
+
+  public List<String> getDatabaseNames() {
+    return ZKMetadataProvider.getDatabases(_propertyStore).stream()
+        .map(DatabaseConfig::getDatabaseName).collect(Collectors.toList());
+  }
+
+  public synchronized void addDatabase(DatabaseConfig database)
+      throws DatabaseAlreadyExistsException {
+    String dbId = database.getId();
+    String dbName = database.getDatabaseName();
+
+    LOGGER.info("Creating database: {} with id: {}", dbName, dbId);
+
+    if (getDatabaseNames().contains(dbName)) {
+      throw new DatabaseAlreadyExistsException(String.format("Database: %s already exists", dbName));
+    }
+    DatabaseConfig existingDB = ZKMetadataProvider.getDatabase(_propertyStore, dbId);
+    if (existingDB != null) {
+      if (!existingDB.getDatabaseName().equals(dbName)) {
+        // Replace the exception with logic to update the database name field once update database is supported.
+        throw new DatabaseAlreadyExistsException(
+            String.format("Database id: %s already exists. Updating database name is not yet supported", dbId));
+      } else {
+        throw new DatabaseAlreadyExistsException(String.format("Database: %s already exists", dbName));
+      }
+    } else {
+      ZKMetadataProvider.setDatabase(_propertyStore, database);
+      LOGGER.info("Created database: {} with id: {}", dbName, dbId);
+    }
   }
 
   /*

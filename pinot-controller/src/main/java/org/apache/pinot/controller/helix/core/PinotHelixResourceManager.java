@@ -1380,6 +1380,15 @@ public class PinotHelixResourceManager {
   }
 
   /*
+   * Database APIs
+   */
+
+  public List<String> getDatabaseNames() {
+    return ZKMetadataProvider.getDatabases(_propertyStore).stream()
+        .map(DatabaseConfig::getDatabaseName).collect(Collectors.toList());
+  }
+
+  /*
    * API 2.0
    */
 

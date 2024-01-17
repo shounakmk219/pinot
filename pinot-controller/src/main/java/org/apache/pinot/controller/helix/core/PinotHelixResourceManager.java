@@ -1390,6 +1390,11 @@ public class PinotHelixResourceManager {
         .map(DatabaseConfig::getDatabaseName).collect(Collectors.toList());
   }
 
+  public DatabaseConfig getDatabaseByName(String dbName) {
+    return ZKMetadataProvider.getDatabases(_propertyStore).stream()
+        .filter(db -> db.getDatabaseName().equals(dbName)).findFirst().orElse(null);
+  }
+
   public synchronized void addDatabase(DatabaseConfig database)
       throws DatabaseAlreadyExistsException {
     String dbId = database.getId();
@@ -1413,6 +1418,20 @@ public class PinotHelixResourceManager {
       ZKMetadataProvider.setDatabase(_propertyStore, database);
       LOGGER.info("Created database: {} with id: {}", dbName, dbId);
     }
+  }
+
+  public String getFullyQualifiedTableName(String tableName, String databaseId) {
+    String[] tableSplit = tableName.split("\\.");
+    if (tableSplit.length > 2) {
+      throw new IllegalArgumentException(String.format("Table name %s contains more than 1 '.' in it", tableName));
+    } else if (tableSplit.length == 2) {
+      databaseId = getDatabaseByName(tableSplit[0]).getId();
+      tableName = tableSplit[1];
+    }
+    if (databaseId == null || databaseId.isBlank()) {
+      return tableName;
+    }
+    return String.format("%s.%s", databaseId, tableName);
   }
 
   /*

@@ -65,7 +65,7 @@ public class TableConfig extends BaseJsonConfig {
   /* MANDATORY FIELDS */
 
   @JsonPropertyDescription("The name for the table (with type suffix), e.g. \"myTable_OFFLINE\" (mandatory)")
-  private final String _tableName;
+  private String _tableName;
 
   @JsonPropertyDescription(value = "The type of the table (OFFLINE|REALTIME) (mandatory)")
   private final TableType _tableType;
@@ -200,6 +200,10 @@ public class TableConfig extends BaseJsonConfig {
   @JsonProperty(TABLE_NAME_KEY)
   public String getTableName() {
     return _tableName;
+  }
+
+  public void setTableName(String tableName) {
+    _tableName = tableName;
   }
 
   @JsonProperty(TABLE_TYPE_KEY)

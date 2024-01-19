@@ -10,6 +10,7 @@ import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.PreMatching;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.ext.Provider;
+import org.apache.pinot.common.exception.DatabaseNotFoundException;
 import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,13 @@ public class ControllerRequestFilter implements ContainerRequestFilter {
     for (String key : TABLE_NAME_KEYS) {
       if (queryParams.containsKey(key)) {
         String tableName = queryParams.getFirst(key);
-        String translatedTableName = _resourceManager.getFullyQualifiedTableName(tableName, databaseId);
+        String translatedTableName = null;
+        try {
+          translatedTableName = _resourceManager.getFullyQualifiedTableName(tableName, databaseId);
+        } catch (DatabaseNotFoundException e) {
+          LOGGER.error(String.format("Table name translation failed. %s", e.getMessage()));
+          translatedTableName = tableName;
+        }
         // table is not part of default database
         if (!translatedTableName.equals(tableName)) {
           uri = uri.replaceAll(String.format("%s=%s", key, tableName),

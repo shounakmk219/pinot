@@ -27,6 +27,8 @@ public class DatabaseConfig extends BaseJsonConfig {
   private final String _id;
   private final String _databaseName;
 
+  public static final DatabaseConfig DEFAULT = new DatabaseConfig("default", "default");
+
   @JsonCreator
   public DatabaseConfig(@JsonProperty(value = "id") String id,
       @JsonProperty(value = "databaseName", required = true) String databaseName) {
@@ -40,9 +42,5 @@ public class DatabaseConfig extends BaseJsonConfig {
 
   public String getDatabaseName() {
     return _databaseName;
-  }
-
-  public static DatabaseConfig getDefault() {
-    return new DatabaseConfig("default", "default");
   }
 }

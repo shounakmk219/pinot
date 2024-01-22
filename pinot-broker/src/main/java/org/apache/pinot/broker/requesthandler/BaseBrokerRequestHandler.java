@@ -49,7 +49,9 @@ import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.apache.pinot.broker.api.AccessControl;
 import org.apache.pinot.broker.api.RequesterIdentity;
+import org.apache.pinot.broker.api.resources.Constants;
 import org.apache.pinot.broker.broker.AccessControlFactory;
+import org.apache.pinot.broker.broker.helix.HelixResourceManager;
 import org.apache.pinot.broker.querylog.QueryLogger;
 import org.apache.pinot.broker.queryquota.QueryQuotaManager;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
@@ -143,6 +145,7 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
   protected final int _queryResponseLimit;
   protected final QueryLogger _queryLogger;
   protected final BrokerQueryEventListener _brokerQueryEventListener;
+  protected final HelixResourceManager _helixResourceManager;
 
   private final boolean _disableGroovy;
   private final boolean _useApproximateFunction;
@@ -153,7 +156,8 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
 
   public BaseBrokerRequestHandler(PinotConfiguration config, String brokerId, BrokerRoutingManager routingManager,
       AccessControlFactory accessControlFactory, QueryQuotaManager queryQuotaManager, TableCache tableCache,
-      BrokerMetrics brokerMetrics, BrokerQueryEventListener brokerQueryEventListener) {
+      BrokerMetrics brokerMetrics, BrokerQueryEventListener brokerQueryEventListener,
+      HelixResourceManager helixResourceManager) {
     _brokerId = brokerId;
     _brokerIdGenerator = new BrokerRequestIdGenerator(brokerId);
     _config = config;
@@ -162,6 +166,7 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
     _queryQuotaManager = queryQuotaManager;
     _tableCache = tableCache;
     _brokerMetrics = brokerMetrics;
+    _helixResourceManager = helixResourceManager;
     _disableGroovy = _config.getProperty(Broker.DISABLE_GROOVY, Broker.DEFAULT_DISABLE_GROOVY);
     _useApproximateFunction = _config.getProperty(Broker.USE_APPROXIMATE_FUNCTION, false);
     _defaultHllLog2m = _config.getProperty(CommonConstants.Helix.DEFAULT_HYPERLOGLOG_LOG2M_KEY,
@@ -314,6 +319,11 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
         // Compile the request into PinotQuery
         compilationStartTimeNs = System.nanoTime();
         pinotQuery = CalciteSqlParser.compileToPinotQuery(sqlNodeAndOptions);
+        // ====================================================================
+        // database design milestone 1.0
+        pinotQuery.getDataSource().setTableName(_helixResourceManager.getFullyQualifiedTableName(
+            pinotQuery.getDataSource().getTableName(), httpHeaders.getHeaderString(Constants.DATABASE)));
+        // ====================================================================
       } catch (Exception e) {
         LOGGER.info("Caught exception while compiling SQL request {}: {}, {}", requestId, query, e.getMessage());
         _brokerMetrics.addMeteredGlobalValue(BrokerMeter.REQUEST_COMPILATION_EXCEPTIONS, 1);

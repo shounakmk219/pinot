@@ -35,6 +35,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pinot.broker.api.AccessControl;
 import org.apache.pinot.broker.api.RequesterIdentity;
 import org.apache.pinot.broker.broker.AccessControlFactory;
+import org.apache.pinot.broker.broker.helix.HelixResourceManager;
 import org.apache.pinot.broker.querylog.QueryLogger;
 import org.apache.pinot.broker.queryquota.QueryQuotaManager;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
@@ -85,9 +86,10 @@ public class MultiStageBrokerRequestHandler extends BaseBrokerRequestHandler {
 
   public MultiStageBrokerRequestHandler(PinotConfiguration config, String brokerId, BrokerRoutingManager routingManager,
       AccessControlFactory accessControlFactory, QueryQuotaManager queryQuotaManager, TableCache tableCache,
-      BrokerMetrics brokerMetrics, BrokerQueryEventListener brokerQueryEventListener) {
+      BrokerMetrics brokerMetrics, BrokerQueryEventListener brokerQueryEventListener,
+      HelixResourceManager helixResourceManager) {
     super(config, brokerId, routingManager, accessControlFactory, queryQuotaManager, tableCache, brokerMetrics,
-        brokerQueryEventListener);
+        brokerQueryEventListener, helixResourceManager);
     LOGGER.info("Using Multi-stage BrokerRequestHandler.");
     String hostname = config.getProperty(CommonConstants.MultiStageQueryRunner.KEY_OF_QUERY_RUNNER_HOSTNAME);
     int port = Integer.parseInt(config.getProperty(CommonConstants.MultiStageQueryRunner.KEY_OF_QUERY_RUNNER_PORT));

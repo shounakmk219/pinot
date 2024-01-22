@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.pinot.broker.broker.AccessControlFactory;
 import org.apache.pinot.broker.broker.AllowAllAccessControlFactory;
+import org.apache.pinot.broker.broker.helix.HelixResourceManager;
 import org.apache.pinot.broker.queryquota.QueryQuotaManager;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
 import org.apache.pinot.common.config.provider.TableCache;
@@ -51,6 +52,8 @@ public class MultiStageBrokerRequestHandlerTest {
   @Mock
   private QueryQuotaManager _queryQuotaManager;
   @Mock
+  private HelixResourceManager _helixResourceManager;
+  @Mock
   private TableCache _tableCache;
 
   @Mock
@@ -68,7 +71,7 @@ public class MultiStageBrokerRequestHandlerTest {
     _requestHandler =
         new MultiStageBrokerRequestHandler(_config, "Broker_localhost", _routingManager,
                 _accessControlFactory, _queryQuotaManager, _tableCache, _brokerMetrics,
-                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener());
+                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener(), _helixResourceManager);
   }
 
   @Test

@@ -39,6 +39,7 @@ import org.apache.helix.model.InstanceConfig;
 import org.apache.helix.model.Message;
 import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
+import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.pinot.broker.broker.AccessControlFactory;
 import org.apache.pinot.broker.broker.BrokerAdminApiApplication;
 import org.apache.pinot.broker.queryquota.HelixExternalViewBasedQueryQuotaManager;
@@ -85,6 +86,7 @@ import org.apache.pinot.spi.utils.CommonConstants.MultiStageQueryRunner;
 import org.apache.pinot.spi.utils.InstanceTypeUtils;
 import org.apache.pinot.spi.utils.NetUtils;
 import org.apache.pinot.sql.parsers.rewriter.QueryRewriterFactory;
+import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,6 +130,7 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
   // Handles the server routing stats.
   protected ServerRoutingStatsManager _serverRoutingStatsManager;
   protected BrokerQueryEventListener _brokerQueryEventListener;
+  protected HelixResourceManager _helixResourceManager;
 
   @Override
   public void init(PinotConfiguration brokerConf)
@@ -249,6 +252,7 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     _helixAdmin = _spectatorHelixManager.getClusterManagmentTool();
     _propertyStore = _spectatorHelixManager.getHelixPropertyStore();
     _helixDataAccessor = _spectatorHelixManager.getHelixDataAccessor();
+    _helixResourceManager = new HelixResourceManager(_spectatorHelixManager);
 
     LOGGER.info("Setting up broker request handler");
     // Set up metric registry and broker metrics
@@ -300,18 +304,18 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     if (brokerRequestHandlerType.equalsIgnoreCase(Broker.GRPC_BROKER_REQUEST_HANDLER_TYPE)) {
       singleStageBrokerRequestHandler =
           new GrpcBrokerRequestHandler(_brokerConf, brokerId, _routingManager, _accessControlFactory, queryQuotaManager,
-              tableCache, _brokerMetrics, null, _brokerQueryEventListener);
+              tableCache, _brokerMetrics, null, _brokerQueryEventListener, _helixResourceManager);
     } else { // default request handler type, e.g. netty
       if (_brokerConf.getProperty(Broker.BROKER_NETTYTLS_ENABLED, false)) {
         singleStageBrokerRequestHandler =
             new SingleConnectionBrokerRequestHandler(_brokerConf, brokerId, _routingManager, _accessControlFactory,
                 queryQuotaManager, tableCache, _brokerMetrics, nettyDefaults, tlsDefaults, _serverRoutingStatsManager,
-                    _brokerQueryEventListener);
+                    _brokerQueryEventListener, _helixResourceManager);
       } else {
         singleStageBrokerRequestHandler =
             new SingleConnectionBrokerRequestHandler(_brokerConf, brokerId, _routingManager, _accessControlFactory,
                 queryQuotaManager, tableCache, _brokerMetrics, nettyDefaults, null, _serverRoutingStatsManager,
-                    _brokerQueryEventListener);
+                    _brokerQueryEventListener, _helixResourceManager);
       }
     }
 
@@ -322,7 +326,7 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
       // TODO: decouple protocol and engine selection.
       multiStageBrokerRequestHandler =
           new MultiStageBrokerRequestHandler(_brokerConf, brokerId, _routingManager, _accessControlFactory,
-              queryQuotaManager, tableCache, _brokerMetrics, _brokerQueryEventListener);
+              queryQuotaManager, tableCache, _brokerMetrics, _brokerQueryEventListener, _helixResourceManager);
     }
 
     _brokerRequestHandler = new BrokerRequestHandlerDelegate(brokerId, singleStageBrokerRequestHandler,
@@ -420,6 +424,12 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
    * @param brokerAdminApplication is the application
    */
   protected void registerExtraComponents(BrokerAdminApiApplication brokerAdminApplication) {
+    brokerAdminApplication.register(new AbstractBinder() {
+      @Override
+      protected void configure() {
+        bind(_helixResourceManager).to(HelixResourceManager.class);
+      }
+    });
   }
 
   private void updateInstanceConfigAndBrokerResourceIfNeeded() {

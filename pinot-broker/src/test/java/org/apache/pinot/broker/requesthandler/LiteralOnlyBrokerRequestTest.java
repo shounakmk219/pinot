@@ -185,7 +185,7 @@ public class LiteralOnlyBrokerRequestTest {
         new SingleConnectionBrokerRequestHandler(new PinotConfiguration(), "testBrokerId", null, ACCESS_CONTROL_FACTORY,
             null, null, new BrokerMetrics("", PinotMetricUtils.getPinotMetricsRegistry(), true, Collections.emptySet()),
             null, null, mock(ServerRoutingStatsManager.class),
-                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener());
+                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener(), null);
 
     long randNum = RANDOM.nextLong();
     byte[] randBytes = new byte[12];
@@ -214,7 +214,7 @@ public class LiteralOnlyBrokerRequestTest {
         new SingleConnectionBrokerRequestHandler(new PinotConfiguration(), "testBrokerId", null, ACCESS_CONTROL_FACTORY,
             null, null, new BrokerMetrics("", PinotMetricUtils.getPinotMetricsRegistry(), true, Collections.emptySet()),
             null, null, mock(ServerRoutingStatsManager.class),
-                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener());
+                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener(), null);
     long currentTsMin = System.currentTimeMillis();
     JsonNode request = JsonUtils.stringToJsonNode(
         "{\"sql\":\"SELECT now() as currentTs, fromDateTime('2020-01-01 UTC', 'yyyy-MM-dd z') as firstDayOf2020\"}");
@@ -422,7 +422,7 @@ public class LiteralOnlyBrokerRequestTest {
         new SingleConnectionBrokerRequestHandler(new PinotConfiguration(), "testBrokerId", null, ACCESS_CONTROL_FACTORY,
             null, null, new BrokerMetrics("", PinotMetricUtils.getPinotMetricsRegistry(), true, Collections.emptySet()),
             null, null, mock(ServerRoutingStatsManager.class),
-                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener());
+                PinotBrokerQueryEventListenerFactory.getBrokerQueryEventListener(), null);
 
     // Test 1: select constant
     JsonNode request = JsonUtils.stringToJsonNode("{\"sql\":\"EXPLAIN PLAN FOR SELECT 1.5, 'test'\"}");

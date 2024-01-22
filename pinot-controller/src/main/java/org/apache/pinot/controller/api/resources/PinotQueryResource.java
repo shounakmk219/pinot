@@ -246,7 +246,8 @@ public class PinotQueryResource {
       String inputTableName =
           sqlNode != null ? RequestUtils.getTableNames(CalciteSqlParser.compileSqlNodeToPinotQuery(sqlNode)).iterator()
               .next() : CalciteSqlCompiler.compileToBrokerRequest(query).getQuerySource().getTableName();
-      tableName = _pinotHelixResourceManager.getActualTableName(inputTableName);
+      tableName = _pinotHelixResourceManager.getFullyQualifiedTableName(inputTableName,
+          httpHeaders.getHeaderString(Constants.DATABASE));
     } catch (Exception e) {
       LOGGER.error("Caught exception while compiling query: {}", query, e);
       try {

@@ -33,8 +33,13 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import org.apache.pinot.broker.api.BrokerApplicationException;
+import org.apache.pinot.broker.broker.helix.HelixResourceManager;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
 import org.apache.pinot.core.auth.Actions;
 import org.apache.pinot.core.auth.Authorize;
@@ -52,6 +57,9 @@ public class PinotBrokerRouting {
   @Inject
   BrokerRoutingManager _routingManager;
 
+  @Inject
+  HelixResourceManager _helixResourceManager;
+
   @PUT
   @Produces(MediaType.TEXT_PLAIN)
   @Path("/routing/{tableName}")
@@ -59,11 +67,40 @@ public class PinotBrokerRouting {
   @ApiOperation(value = "Build/rebuild the routing for a table", notes = "Build/rebuild the routing for a table")
   @ApiResponses(value = {
       @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 400, message = "Incorrect table name"),
       @ApiResponse(code = 500, message = "Internal server error")
   })
   public String buildRouting(
-      @ApiParam(value = "Table name (with type)") @PathParam("tableName") String tableNameWithType) {
-    _routingManager.buildRouting(tableNameWithType);
+      @ApiParam(value = "Table name (with type)") @PathParam("tableName") String tableNameWithType,
+      @Context HttpHeaders headers) {
+    try {
+      tableNameWithType = _helixResourceManager.getFullyQualifiedTableName(tableNameWithType,
+          headers.getHeaderString(Constants.DATABASE));
+    } catch (Exception e) {
+      throw new BrokerApplicationException(e.getMessage(), Response.Status.BAD_REQUEST);
+    }
+    return buildRouting(tableNameWithType);
+  }
+
+  @PUT
+  @Produces(MediaType.TEXT_PLAIN)
+  @Path("/routing")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.BUILD_ROUTING)
+  @ApiOperation(value = "Build/rebuild the routing for a table", notes = "Build/rebuild the routing for a table")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 400, message = "Incorrect table name"),
+      @ApiResponse(code = 500, message = "Internal server error")
+  })
+  public String buildRouting(
+      @ApiParam(value = "Table name (with type)") @QueryParam("tableName") String tableNameWithType) {
+    try {
+      _routingManager.buildRouting(tableNameWithType);
+    } catch (IllegalStateException e) {
+      throw new BrokerApplicationException(e.getMessage(), Response.Status.BAD_REQUEST);
+    } catch (Exception e) {
+      throw new BrokerApplicationException(e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
+    }
     return "Success";
   }
 

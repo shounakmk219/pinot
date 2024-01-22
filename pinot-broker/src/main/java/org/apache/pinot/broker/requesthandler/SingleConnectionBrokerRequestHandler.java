@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pinot.broker.broker.AccessControlFactory;
+import org.apache.pinot.broker.broker.helix.HelixResourceManager;
 import org.apache.pinot.broker.failuredetector.FailureDetector;
 import org.apache.pinot.broker.failuredetector.FailureDetectorFactory;
 import org.apache.pinot.broker.queryquota.QueryQuotaManager;
@@ -76,9 +77,9 @@ public class SingleConnectionBrokerRequestHandler extends BaseBrokerRequestHandl
       BrokerRoutingManager routingManager, AccessControlFactory accessControlFactory,
       QueryQuotaManager queryQuotaManager, TableCache tableCache, BrokerMetrics brokerMetrics, NettyConfig nettyConfig,
       TlsConfig tlsConfig, ServerRoutingStatsManager serverRoutingStatsManager,
-      BrokerQueryEventListener brokerQueryEventListener) {
+      BrokerQueryEventListener brokerQueryEventListener, HelixResourceManager helixResourceManager) {
     super(config, brokerId, routingManager, accessControlFactory, queryQuotaManager, tableCache, brokerMetrics,
-        brokerQueryEventListener);
+        brokerQueryEventListener, helixResourceManager);
     LOGGER.info("Using Netty BrokerRequestHandler.");
 
     _brokerReduceService = new BrokerReduceService(_config);

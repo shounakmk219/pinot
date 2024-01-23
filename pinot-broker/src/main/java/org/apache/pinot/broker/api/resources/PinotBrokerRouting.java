@@ -74,7 +74,7 @@ public class PinotBrokerRouting {
       @ApiParam(value = "Table name (with type)") @PathParam("tableName") String tableNameWithType,
       @Context HttpHeaders headers) {
     try {
-      tableNameWithType = _helixResourceManager.getFullyQualifiedTableName(tableNameWithType,
+      tableNameWithType = _helixResourceManager.getActualTableName(tableNameWithType,
           headers.getHeaderString(Constants.DATABASE));
     } catch (Exception e) {
       throw new BrokerApplicationException(e.getMessage(), Response.Status.BAD_REQUEST);

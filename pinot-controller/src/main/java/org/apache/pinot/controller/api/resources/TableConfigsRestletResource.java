@@ -48,7 +48,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pinot.common.exception.DatabaseNotFoundException;
 import org.apache.pinot.common.metrics.ControllerMeter;
 import org.apache.pinot.common.metrics.ControllerMetrics;
 import org.apache.pinot.controller.ControllerConf;
@@ -124,7 +123,7 @@ public class TableConfigsRestletResource {
 
       ArrayNode configsList = JsonUtils.newArrayNode();
       for (String rawTableName : rawTableNames) {
-        configsList.add(_pinotHelixResourceManager.getPrettyTableName(rawTableName));
+        configsList.add(rawTableName);
       }
       return configsList.toString();
     } catch (Exception e) {
@@ -148,12 +147,11 @@ public class TableConfigsRestletResource {
       @ApiParam(value = "Raw table name", required = true) @PathParam("tableName") String tableName,
       @Context HttpHeaders headers) {
     try {
-      tableName = _pinotHelixResourceManager.getFullyQualifiedTableName(tableName,
-          headers.getHeaderString(Constants.DATABASE));
-    } catch (DatabaseNotFoundException | IllegalArgumentException e) {
+      return getConfig(
+          _pinotHelixResourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE)));
+    } catch (IllegalArgumentException e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
     }
-    return getConfig(tableName);
   }
 
   /**
@@ -174,17 +172,7 @@ public class TableConfigsRestletResource {
       Schema schema = _pinotHelixResourceManager.getTableSchema(tableName);
       TableConfig offlineTableConfig = _pinotHelixResourceManager.getOfflineTableConfig(tableName);
       TableConfig realtimeTableConfig = _pinotHelixResourceManager.getRealtimeTableConfig(tableName);
-      String prettyTableName = _pinotHelixResourceManager.getPrettyTableName(tableName);
-      if (schema != null) {
-        schema.setSchemaName(prettyTableName);
-      }
-      if (offlineTableConfig != null) {
-        offlineTableConfig.setTableName(TableNameBuilder.OFFLINE.tableNameWithType(prettyTableName));
-      }
-      if (realtimeTableConfig != null) {
-        realtimeTableConfig.setTableName(TableNameBuilder.REALTIME.tableNameWithType(prettyTableName));
-      }
-      TableConfigs config = new TableConfigs(prettyTableName, schema, offlineTableConfig, realtimeTableConfig);
+      TableConfigs config = new TableConfigs(tableName, schema, offlineTableConfig, realtimeTableConfig);
       return config.toJsonString();
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR, e);
@@ -213,9 +201,9 @@ public class TableConfigsRestletResource {
       Pair<TableConfigs, Map<String, Object>> tableConfigsAndUnrecognizedProps =
           JsonUtils.stringToObjectAndUnrecognizedProperties(tableConfigsStr, TableConfigs.class);
       tableConfigs = tableConfigsAndUnrecognizedProps.getLeft();
-      tableName = _pinotHelixResourceManager.getFullyQualifiedTableName(tableConfigs.getTableName(),
+      tableName = _pinotHelixResourceManager.getActualTableName(tableConfigs.getTableName(),
           httpHeaders.getHeaderString(Constants.DATABASE));
-    } catch (DatabaseNotFoundException | IllegalArgumentException e) {
+    } catch (IllegalArgumentException e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, String.format("Invalid TableConfigs. %s", e.getMessage()),
@@ -244,16 +232,12 @@ public class TableConfigsRestletResource {
       @Context Request request) {
     Pair<TableConfigs, Map<String, Object>> tableConfigsAndUnrecognizedProps;
     TableConfigs tableConfigs;
-    String prettyTableName;
     try {
-      prettyTableName = _pinotHelixResourceManager.getPrettyTableName(tableName);
       tableConfigsAndUnrecognizedProps =
           JsonUtils.stringToObjectAndUnrecognizedProperties(tableConfigsStr, TableConfigs.class);
       tableConfigs = tableConfigsAndUnrecognizedProps.getLeft();
       tableConfigs.setTableName(tableName);
       validateConfig(tableConfigs, typesToSkip);
-    } catch (DatabaseNotFoundException | IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, String.format("Invalid TableConfigs. %s", e.getMessage()),
           Response.Status.BAD_REQUEST, e);
@@ -262,7 +246,7 @@ public class TableConfigsRestletResource {
     if (_pinotHelixResourceManager.hasOfflineTable(tableName) || _pinotHelixResourceManager
         .hasRealtimeTable(tableName) || _pinotHelixResourceManager.getSchema(tableName) != null) {
       throw new ControllerApplicationException(LOGGER,
-          String.format("TableConfigs: %s already exists. Use PUT to update existing config", prettyTableName),
+          String.format("TableConfigs: %s already exists. Use PUT to update existing config", tableName),
           Response.Status.BAD_REQUEST);
     }
 
@@ -314,13 +298,13 @@ public class TableConfigsRestletResource {
         throw e;
       }
 
-      return new ConfigSuccessResponse("TableConfigs " + prettyTableName + " successfully added",
+      return new ConfigSuccessResponse("TableConfigs " + tableName + " successfully added",
           tableConfigsAndUnrecognizedProps.getRight());
     } catch (Exception e) {
       _controllerMetrics.addMeteredGlobalValue(ControllerMeter.CONTROLLER_TABLE_ADD_ERROR, 1L);
       if (e instanceof InvalidTableConfigException) {
         throw new ControllerApplicationException(LOGGER,
-            String.format("Invalid TableConfigs: %s", prettyTableName), Response.Status.BAD_REQUEST, e);
+            String.format("Invalid TableConfigs: %s", tableName), Response.Status.BAD_REQUEST, e);
       } else if (e instanceof TableAlreadyExistsException) {
         throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.CONFLICT, e);
       } else {
@@ -344,8 +328,7 @@ public class TableConfigsRestletResource {
       @ApiParam(value = "TableConfigs name i.e. raw table name", required = true) @PathParam("tableName")
           String tableName, @Context HttpHeaders headers) {
     try {
-      tableName = _pinotHelixResourceManager.getFullyQualifiedTableName(tableName,
-          headers.getHeaderString(Constants.DATABASE));
+      tableName = _pinotHelixResourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
     }
@@ -372,18 +355,17 @@ public class TableConfigsRestletResource {
           .hasOfflineTable(tableName)) {
         tableExists = true;
       }
-      String prettyTableName = _pinotHelixResourceManager.getPrettyTableName(tableName);
       // Delete whether tables exist or not
       _pinotHelixResourceManager.deleteRealtimeTable(tableName);
-      LOGGER.info("Deleted realtime table: {}", prettyTableName);
+      LOGGER.info("Deleted realtime table: {}", tableName);
       _pinotHelixResourceManager.deleteOfflineTable(tableName);
-      LOGGER.info("Deleted offline table: {}", prettyTableName);
+      LOGGER.info("Deleted offline table: {}", tableName);
       boolean schemaExists = _pinotHelixResourceManager.deleteSchema(tableName);
-      LOGGER.info("Deleted schema: {}", prettyTableName);
+      LOGGER.info("Deleted schema: {}", tableName);
       if (tableExists || schemaExists) {
-        return new SuccessResponse("Deleted TableConfigs: " + prettyTableName);
+        return new SuccessResponse("Deleted TableConfigs: " + tableName);
       } else {
-        return new SuccessResponse("TableConfigs: " + prettyTableName +
+        return new SuccessResponse("TableConfigs: " + tableName +
             " don't exist. Invoked delete anyway to clean stale metadata/segments");
       }
     } catch (Exception e) {
@@ -417,8 +399,7 @@ public class TableConfigsRestletResource {
       @QueryParam("forceTableSchemaUpdate") boolean forceTableSchemaUpdate,
       String tableConfigsStr, @Context HttpHeaders headers) throws Exception {
     try {
-      tableName = _pinotHelixResourceManager.getFullyQualifiedTableName(tableName,
-          headers.getHeaderString(Constants.DATABASE));
+      tableName = _pinotHelixResourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
     }
@@ -452,25 +433,21 @@ public class TableConfigsRestletResource {
       String tableConfigsStr) throws Exception {
     Pair<TableConfigs, Map<String, Object>> tableConfigsAndUnrecognizedProps;
     TableConfigs tableConfigs;
-    String prettyTableName = null;
     try {
-      prettyTableName = _pinotHelixResourceManager.getPrettyTableName(tableName);
       tableConfigsAndUnrecognizedProps =
           JsonUtils.stringToObjectAndUnrecognizedProperties(tableConfigsStr, TableConfigs.class);
       tableConfigs = tableConfigsAndUnrecognizedProps.getLeft();
       tableConfigs.setTableName(tableName);
       validateConfig(tableConfigs, typesToSkip);
-    } catch (IllegalArgumentException | DatabaseNotFoundException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
     } catch (Exception e) {
-      throw new ControllerApplicationException(LOGGER, String.format("Invalid TableConfigs: %s", prettyTableName),
+      throw new ControllerApplicationException(LOGGER, String.format("Invalid TableConfigs: %s", tableName),
           Response.Status.BAD_REQUEST, e);
     }
 
     if (!_pinotHelixResourceManager.hasOfflineTable(tableName) && !_pinotHelixResourceManager
         .hasRealtimeTable(tableName)) {
       throw new ControllerApplicationException(LOGGER,
-          String.format("TableConfigs: %s does not exist. Use POST to create it first.", prettyTableName),
+          String.format("TableConfigs: %s does not exist. Use POST to create it first.", tableName),
           Response.Status.BAD_REQUEST);
     }
 
@@ -480,41 +457,41 @@ public class TableConfigsRestletResource {
 
     try {
       _pinotHelixResourceManager.updateSchema(schema, reload, forceTableSchemaUpdate);
-      LOGGER.info("Updated schema: {}", prettyTableName);
+      LOGGER.info("Updated schema: {}", tableName);
 
       if (offlineTableConfig != null) {
         tuneConfig(offlineTableConfig, schema);
         if (_pinotHelixResourceManager.hasOfflineTable(tableName)) {
           _pinotHelixResourceManager.updateTableConfig(offlineTableConfig);
-          LOGGER.info("Updated offline table config: {}", prettyTableName);
+          LOGGER.info("Updated offline table config: {}", tableName);
         } else {
           _pinotHelixResourceManager.addTable(offlineTableConfig);
-          LOGGER.info("Created offline table config: {}", prettyTableName);
+          LOGGER.info("Created offline table config: {}", tableName);
         }
       }
       if (realtimeTableConfig != null) {
         tuneConfig(realtimeTableConfig, schema);
         if (_pinotHelixResourceManager.hasRealtimeTable(tableName)) {
           _pinotHelixResourceManager.updateTableConfig(realtimeTableConfig);
-          LOGGER.info("Updated realtime table config: {}", prettyTableName);
+          LOGGER.info("Updated realtime table config: {}", tableName);
         } else {
           _pinotHelixResourceManager.addTable(realtimeTableConfig);
-          LOGGER.info("Created realtime table config: {}", prettyTableName);
+          LOGGER.info("Created realtime table config: {}", tableName);
         }
       }
     } catch (InvalidTableConfigException e) {
       _controllerMetrics.addMeteredGlobalValue(ControllerMeter.CONTROLLER_TABLE_UPDATE_ERROR, 1L);
       throw new ControllerApplicationException(LOGGER,
-          String.format("Invalid TableConfigs for: %s, %s", prettyTableName, e.getMessage()),
+          String.format("Invalid TableConfigs for: %s, %s", tableName, e.getMessage()),
           Response.Status.BAD_REQUEST, e);
     } catch (Exception e) {
       _controllerMetrics.addMeteredGlobalValue(ControllerMeter.CONTROLLER_TABLE_UPDATE_ERROR, 1L);
       throw new ControllerApplicationException(LOGGER,
-          String.format("Failed to update TableConfigs for: %s, %s", prettyTableName, e.getMessage()),
+          String.format("Failed to update TableConfigs for: %s, %s", tableName, e.getMessage()),
           Response.Status.INTERNAL_SERVER_ERROR, e);
     }
 
-    return new ConfigSuccessResponse("TableConfigs updated for " + prettyTableName,
+    return new ConfigSuccessResponse("TableConfigs updated for " + tableName,
         tableConfigsAndUnrecognizedProps.getRight());
   }
 

@@ -321,7 +321,7 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
         pinotQuery = CalciteSqlParser.compileToPinotQuery(sqlNodeAndOptions);
         // ====================================================================
         // database design milestone 1.0
-        pinotQuery.getDataSource().setTableName(_helixResourceManager.getFullyQualifiedTableName(
+        pinotQuery.getDataSource().setTableName(_helixResourceManager.getActualTableName(
             pinotQuery.getDataSource().getTableName(), httpHeaders.getHeaderString(Constants.DATABASE)));
         // ====================================================================
       } catch (Exception e) {

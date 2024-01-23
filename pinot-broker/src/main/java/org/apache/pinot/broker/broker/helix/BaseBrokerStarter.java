@@ -252,7 +252,6 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     _helixAdmin = _spectatorHelixManager.getClusterManagmentTool();
     _propertyStore = _spectatorHelixManager.getHelixPropertyStore();
     _helixDataAccessor = _spectatorHelixManager.getHelixDataAccessor();
-    _helixResourceManager = new HelixResourceManager(_spectatorHelixManager);
 
     LOGGER.info("Setting up broker request handler");
     // Set up metric registry and broker metrics
@@ -288,6 +287,9 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     boolean caseInsensitive =
         _brokerConf.getProperty(Helix.ENABLE_CASE_INSENSITIVE_KEY, Helix.DEFAULT_ENABLE_CASE_INSENSITIVE);
     TableCache tableCache = new TableCache(_propertyStore, caseInsensitive);
+    _helixResourceManager = new HelixResourceManager(_spectatorHelixManager, _helixAdmin,
+        _brokerConf.getProperty(Helix.CONFIG_OF_CLUSTER_NAME), tableCache);
+
     // Configure TLS for netty connection to server
     TlsConfig tlsDefaults = TlsUtils.extractTlsConfig(_brokerConf, Broker.BROKER_TLS_PREFIX);
     NettyConfig nettyDefaults = NettyConfig.extractNettyConfig(_brokerConf, Broker.BROKER_NETTY_PREFIX);

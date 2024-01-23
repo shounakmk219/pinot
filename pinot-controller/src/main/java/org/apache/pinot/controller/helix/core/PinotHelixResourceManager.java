@@ -705,30 +705,30 @@ public class PinotHelixResourceManager {
    * @return List of table names in default database
    */
   public List<String> getAllTables() {
-    return getAllTables(DatabaseConfig.DEFAULT.getId());
+    return getAllTables(null);
   }
 
   /**
-   * Get all table names (with type suffix) from provided database id.
+   * Get all table names (with type suffix) from provided database.
    *
-   * @param databaseId database id
-   * @return List of table names in provided database id
+   * @param databaseName database name
+   * @return List of table names in provided database name
    */
-  public List<String> getAllTables(String databaseId) {
+  public List<String> getAllTables(String databaseName) {
     List<String> tableNames = new ArrayList<>();
     for (String resourceName : getAllResources()) {
-      if (TableNameBuilder.isTableResource(resourceName) && isPartOfDatabase(resourceName, databaseId)) {
+      if (TableNameBuilder.isTableResource(resourceName) && isPartOfDatabase(resourceName, databaseName)) {
         tableNames.add(resourceName);
       }
     }
     return tableNames;
   }
 
-  private boolean isPartOfDatabase(String tableName, String databaseId) {
-    if (databaseId == null || databaseId.equals(DatabaseConfig.DEFAULT.getId())) {
+  private boolean isPartOfDatabase(String tableName, String databaseName) {
+    if (databaseName == null) {
       return tableName.split("\\.").length == 1;
     } else {
-      return tableName.startsWith(databaseId + ".");
+      return tableName.startsWith(databaseName + ".");
     }
   }
 
@@ -738,19 +738,19 @@ public class PinotHelixResourceManager {
    * @return List of offline table names in default database
    */
   public List<String> getAllOfflineTables() {
-    return getAllOfflineTables(DatabaseConfig.DEFAULT.getId());
+    return getAllOfflineTables(null);
   }
 
   /**
-   * Get all offline table names from provided database id.
+   * Get all offline table names from provided database name.
    *
-   * @param databaseId database id
-   * @return List of offline table names in provided database id
+   * @param databaseName database name
+   * @return List of offline table names in provided database name
    */
-  public List<String> getAllOfflineTables(String databaseId) {
+  public List<String> getAllOfflineTables(String databaseName) {
     List<String> offlineTableNames = new ArrayList<>();
     for (String resourceName : getAllResources()) {
-      if (isPartOfDatabase(resourceName, databaseId) && TableNameBuilder.isOfflineTableResource(resourceName)) {
+      if (isPartOfDatabase(resourceName, databaseName) && TableNameBuilder.isOfflineTableResource(resourceName)) {
         offlineTableNames.add(resourceName);
       }
     }
@@ -763,18 +763,18 @@ public class PinotHelixResourceManager {
    * @return List of dimension table names in default database
    */
   public List<String> getAllDimensionTables() {
-    return getAllDimensionTables(DatabaseConfig.DEFAULT.getId());
+    return getAllDimensionTables(null);
   }
 
   /**
-   * Get all dimension table names from provided database id.
+   * Get all dimension table names from provided database name.
    *
-   * @param databaseId database id
-   * @return List of dimension table names in provided database id
+   * @param databaseName database name
+   * @return List of dimension table names in provided database name
    */
-  public List<String> getAllDimensionTables(String databaseId) {
+  public List<String> getAllDimensionTables(String databaseName) {
     return _tableCache.getAllDimensionTables().stream()
-        .filter(table -> isPartOfDatabase(table, databaseId))
+        .filter(table -> isPartOfDatabase(table, databaseName))
         .collect(Collectors.toList());
   }
 
@@ -784,19 +784,19 @@ public class PinotHelixResourceManager {
    * @return List of realtime table names in default database
    */
   public List<String> getAllRealtimeTables() {
-    return getAllRealtimeTables(DatabaseConfig.DEFAULT.getId());
+    return getAllRealtimeTables(null);
   }
 
   /**
-   * Get all realtime table names from provided database id.
+   * Get all realtime table names from provided database name.
    *
-   * @param databaseId database id
-   * @return List of realtime table names in provided database id
+   * @param databaseName database name
+   * @return List of realtime table names in provided database name
    */
-  public List<String> getAllRealtimeTables(String databaseId) {
+  public List<String> getAllRealtimeTables(String databaseName) {
     List<String> realtimeTableNames = new ArrayList<>();
     for (String resourceName : getAllResources()) {
-      if (isPartOfDatabase(resourceName, databaseId) && TableNameBuilder.isRealtimeTableResource(resourceName)) {
+      if (isPartOfDatabase(resourceName, databaseName) && TableNameBuilder.isRealtimeTableResource(resourceName)) {
         realtimeTableNames.add(resourceName);
       }
     }
@@ -804,23 +804,24 @@ public class PinotHelixResourceManager {
   }
 
   /**
-   * Get all raw table names.
+   * Get all raw table names in default database.
    *
-   * @return List of raw table names
+   * @return List of raw table names in default database
    */
   public List<String> getAllRawTables() {
-    return getAllRawTables(DatabaseConfig.DEFAULT.getId());
+    return getAllRawTables(null);
   }
 
   /**
-   * Get all raw table names.
+   * Get all raw table names from provided database name.
    *
-   * @return List of raw table names
+   * @param databaseName database name
+   * @return List of raw table names in provided database name
    */
-  public List<String> getAllRawTables(String databaseId) {
+  public List<String> getAllRawTables(String databaseName) {
     Set<String> rawTableNames = new HashSet<>();
     for (String resourceName : getAllResources()) {
-      if (TableNameBuilder.isTableResource(resourceName) && isPartOfDatabase(resourceName, databaseId)) {
+      if (TableNameBuilder.isTableResource(resourceName) && isPartOfDatabase(resourceName, databaseName)) {
         rawTableNames.add(TableNameBuilder.extractRawTableName(resourceName));
       }
     }
@@ -833,6 +834,27 @@ public class PinotHelixResourceManager {
    * @return tableName actually defined in Pinot (matches case) and exists ,else, return the input value
    */
   public String getActualTableName(String tableName) {
+    return getActualTableName(tableName, null);
+  }
+
+  /**
+   * Given a table name and database name in any case, returns the actual table name as defined in Helix/Segment/Schema
+   * @param tableName tableName in any case.
+   * @param databaseName database name in any case.
+   * @return tableName actually defined in Pinot (matches case) and exists ,else, return the input value
+   */
+  public String getActualTableName(String tableName, String databaseName) {
+    String[] tableSplit = tableName.split("\\.");
+    if (tableSplit.length > 2) {
+      // TODO revisit this handling
+      throw new IllegalArgumentException(String.format("Table name %s contains more than 1 '.' in it", tableName));
+    } else if (tableSplit.length == 2) {
+      databaseName = tableSplit[0];
+      tableName = tableSplit[1];
+    }
+    if (databaseName != null && !databaseName.isBlank()) {
+      tableName = String.format("%s.%s", databaseName, tableName);
+    }
     if (_tableCache.isIgnoreCase()) {
       String actualTableName = _tableCache.getActualTableName(tableName);
       return actualTableName != null ? actualTableName : tableName;
@@ -1443,8 +1465,14 @@ public class PinotHelixResourceManager {
    */
 
   public List<String> getDatabaseNames() {
-    return ZKMetadataProvider.getDatabases(_propertyStore).stream()
-        .map(DatabaseConfig::getDatabaseName).collect(Collectors.toList());
+    Set<String> databaseNames = new HashSet<>();
+    for (String resourceName : getAllResources()) {
+      if (TableNameBuilder.isTableResource(resourceName)) {
+        String[] split = resourceName.split("\\.");
+        databaseNames.add(split.length == 2 ? split[0] : null);
+      }
+    }
+    return new ArrayList<>(databaseNames);
   }
 
   /*
@@ -1589,13 +1617,13 @@ public class PinotHelixResourceManager {
   }
 
   public List<String> getSchemaNames() {
-    return getSchemaNames(DatabaseConfig.DEFAULT.getId());
+    return getSchemaNames(null);
   }
 
-  public List<String> getSchemaNames(String databaseId) {
+  public List<String> getSchemaNames(String databaseName) {
     return _propertyStore.getChildNames(
             PinotHelixPropertyStoreZnRecordProvider.forSchema(_propertyStore).getRelativePath(), AccessOption.PERSISTENT)
-        .stream().filter(schemaName -> isPartOfDatabase(schemaName, databaseId))
+        .stream().filter(schemaName -> isPartOfDatabase(schemaName, databaseName))
         .collect(Collectors.toList());
   }
 

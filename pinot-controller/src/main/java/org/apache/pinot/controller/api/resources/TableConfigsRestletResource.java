@@ -209,6 +209,29 @@ public class TableConfigsRestletResource {
       throw new ControllerApplicationException(LOGGER, String.format("Invalid TableConfigs. %s", e.getMessage()),
           Response.Status.BAD_REQUEST, e);
     }
+
+    // validate permission
+    TableConfig offlineTableConfig = tableConfigs.getOffline();
+    TableConfig realtimeTableConfig = tableConfigs.getRealtime();
+    Schema schema = tableConfigs.getSchema();
+    String endpointUrl = request.getRequestURL().toString();
+    AccessControl accessControl = _accessControlFactory.create();
+    AccessControlUtils
+        .validatePermission(schema.getSchemaName(), AccessType.CREATE, httpHeaders, endpointUrl, accessControl);
+    if (offlineTableConfig != null) {
+      AccessControlUtils
+          .validatePermission(offlineTableConfig.getTableName(), AccessType.CREATE, httpHeaders, endpointUrl,
+              accessControl);
+    }
+    if (realtimeTableConfig != null) {
+      AccessControlUtils
+          .validatePermission(realtimeTableConfig.getTableName(), AccessType.CREATE, httpHeaders, endpointUrl,
+              accessControl);
+    }
+    if (!accessControl.hasAccess(httpHeaders, TargetType.TABLE, schema.getSchemaName(), Actions.Table.CREATE_TABLE)) {
+      throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
+    }
+
     return addConfig(tableConfigsStr, tableName, typesToSkip, httpHeaders, request);
   }
 
@@ -219,10 +242,10 @@ public class TableConfigsRestletResource {
    */
   @POST
   @Produces(MediaType.APPLICATION_JSON)
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.CREATE_TABLE)
   @Path("/v2/tableConfigs")
   @ApiOperation(value = "Add the TableConfigs using the tableConfigsStr json",
       notes = "Add the TableConfigs using the tableConfigsStr json")
-  @ManualAuthorization // performed after parsing table configs
   public ConfigSuccessResponse addConfig(
       String tableConfigsStr,
       @ApiParam(value = "Raw table name of the table to create", required = true)
@@ -250,32 +273,15 @@ public class TableConfigsRestletResource {
           Response.Status.BAD_REQUEST);
     }
 
-    // validate permission
     TableConfig offlineTableConfig = tableConfigs.getOffline();
     TableConfig realtimeTableConfig = tableConfigs.getRealtime();
     Schema schema = tableConfigs.getSchema();
-
     try {
-      String endpointUrl = request.getRequestURL().toString();
-      AccessControl accessControl = _accessControlFactory.create();
-      AccessControlUtils
-          .validatePermission(schema.getSchemaName(), AccessType.CREATE, httpHeaders, endpointUrl, accessControl);
-
       if (offlineTableConfig != null) {
         tuneConfig(offlineTableConfig, schema);
-        AccessControlUtils
-            .validatePermission(offlineTableConfig.getTableName(), AccessType.CREATE, httpHeaders, endpointUrl,
-                accessControl);
       }
       if (realtimeTableConfig != null) {
         tuneConfig(realtimeTableConfig, schema);
-        AccessControlUtils
-            .validatePermission(realtimeTableConfig.getTableName(), AccessType.CREATE, httpHeaders, endpointUrl,
-                accessControl);
-      }
-
-      if (!accessControl.hasAccess(httpHeaders, TargetType.TABLE, schema.getSchemaName(), Actions.Table.CREATE_TABLE)) {
-        throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
       }
 
       try {

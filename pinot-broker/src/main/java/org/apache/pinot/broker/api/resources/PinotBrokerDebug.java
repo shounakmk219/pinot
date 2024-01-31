@@ -46,6 +46,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pinot.broker.broker.AccessControlFactory;
+import org.apache.pinot.broker.broker.helix.HelixResourceManager;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.core.auth.Actions;
@@ -81,6 +82,9 @@ public class PinotBrokerDebug {
 
   @Inject
   AccessControlFactory _accessControlFactory;
+
+  @Inject
+  HelixResourceManager _helixResourceManager;
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
@@ -224,8 +228,10 @@ public class PinotBrokerDebug {
   private void checkAccessControl(BrokerRequest brokerRequest, HttpHeaders httpHeaders) {
     // TODO: Handle nested queries
     if (brokerRequest.isSetQuerySource() && brokerRequest.getQuerySource().isSetTableName()) {
+      String tableName = _helixResourceManager.getActualTableName(brokerRequest.getQuerySource().getTableName(),
+          httpHeaders.getHeaderString(Constants.DATABASE));
       if (!_accessControlFactory.create()
-          .hasAccess(httpHeaders, TargetType.TABLE, brokerRequest.getQuerySource().getTableName(),
+          .hasAccess(httpHeaders, TargetType.TABLE, tableName,
               Actions.Table.GET_ROUTING_TABLE)) {
         throw new WebApplicationException("Permission denied", Response.Status.FORBIDDEN);
       }

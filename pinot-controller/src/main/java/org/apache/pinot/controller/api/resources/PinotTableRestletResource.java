@@ -198,14 +198,22 @@ public class PinotTableRestletResource {
     } catch (Exception e) {
       tableName = null;
     }
+    // validate permission
+    String endpointUrl = request.getRequestURL().toString();
+    AccessControlUtils.validatePermission(tableName, AccessType.CREATE, httpHeaders, endpointUrl,
+        _accessControlFactory.create());
+    if (!_accessControlFactory.create()
+        .hasAccess(httpHeaders, TargetType.TABLE, tableName, Actions.Table.CREATE_TABLE)) {
+      throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
+    }
     return addTable(tableConfigStr, tableName, typesToSkip, httpHeaders, request);
   }
 
   @POST
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.CREATE_TABLE)
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/v2/tables")
   @ApiOperation(value = "Adds a table to given database", notes = "Adds a table to given database")
-  @ManualAuthorization // performed after parsing table configs
   public ConfigSuccessResponse addTable(String tableConfigStr,
       @ApiParam(value = "Provide table name in case of non default database", required = true)
       @QueryParam("tableName") String tableName,
@@ -219,16 +227,7 @@ public class PinotTableRestletResource {
       tableConfigAndUnrecognizedProperties =
           JsonUtils.stringToObjectAndUnrecognizedProperties(tableConfigStr, TableConfig.class);
       tableConfig = tableConfigAndUnrecognizedProperties.getLeft();
-        tableConfig.setTableName(tableName);
-
-      // validate permission
-      String endpointUrl = request.getRequestURL().toString();
-      AccessControlUtils.validatePermission(tableName, AccessType.CREATE, httpHeaders, endpointUrl,
-          _accessControlFactory.create());
-      if (!_accessControlFactory.create()
-          .hasAccess(httpHeaders, TargetType.TABLE, tableName, Actions.Table.CREATE_TABLE)) {
-        throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
-      }
+      tableConfig.setTableName(tableName);
 
       Schema schema = _pinotHelixResourceManager.getSchemaForTableConfig(tableConfig);
 

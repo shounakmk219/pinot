@@ -847,7 +847,7 @@ public class PinotHelixResourceManager {
     String[] tableSplit = tableName.split("\\.");
     if (tableSplit.length > 2) {
       // TODO revisit this handling
-      throw new IllegalArgumentException(String.format("Table name %s contains more than 1 '.' in it", tableName));
+      return tableName;
     } else if (tableSplit.length == 2) {
       databaseName = tableSplit[0];
       tableName = tableSplit[1];

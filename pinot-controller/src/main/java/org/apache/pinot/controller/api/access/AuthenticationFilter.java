@@ -37,6 +37,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.UriInfo;
+import org.apache.pinot.controller.api.resources.Constants;
+import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
 import org.apache.pinot.core.auth.FineGrainedAuthUtils;
 import org.apache.pinot.core.auth.ManualAuthorization;
 import org.glassfish.grizzly.http.server.Request;
@@ -59,6 +61,9 @@ public class AuthenticationFilter implements ContainerRequestFilter {
 
   @Inject
   AccessControlFactory _accessControlFactory;
+
+  @Inject
+  PinotHelixResourceManager _resourceManager;
 
   @Context
   ResourceInfo _resourceInfo;
@@ -97,6 +102,10 @@ public class AuthenticationFilter implements ContainerRequestFilter {
     //     - "schemaName"
     // If table name is not available, it means the endpoint is not a table-level endpoint.
     String tableName = extractTableName(uriInfo.getPathParameters(), uriInfo.getQueryParameters());
+    // to handle table name passed as path param
+    if (tableName != null) {
+      tableName = _resourceManager.getActualTableName(tableName, _httpHeaders.getHeaderString(Constants.DATABASE));
+    }
     AccessType accessType = extractAccessType(endpointMethod);
     AccessControlUtils.validatePermission(tableName, accessType, _httpHeaders, endpointUrl, accessControl);
 

@@ -327,16 +327,22 @@ public class PinotSchemaRestletResource {
     Pair<Schema, Map<String, Object>> schemaAndUnrecognizedProps =
         getSchemaAndUnrecognizedPropertiesFromMultiPart(multiPart);
     Schema schema = schemaAndUnrecognizedProps.getLeft();
-    try {
-      return addSchema(_pinotHelixResourceManager.getActualTableName(schema.getSchemaName(),
-          httpHeaders.getHeaderString(Constants.DATABASE)), override, force, multiPart, httpHeaders, request);
-    } catch (IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
+    String schemaName = _pinotHelixResourceManager.getActualTableName(schema.getSchemaName(),
+        httpHeaders.getHeaderString(Constants.DATABASE));
+    String endpointUrl = request.getRequestURL().toString();
+    validateSchemaName(schemaName);
+    AccessControlUtils.validatePermission(schemaName, AccessType.CREATE, httpHeaders, endpointUrl,
+        _accessControlFactory.create());
+    if (!_accessControlFactory.create()
+        .hasAccess(httpHeaders, TargetType.TABLE, schemaName, Actions.Table.CREATE_SCHEMA)) {
+      throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
     }
+    return addSchema(schemaName, override, force, multiPart, httpHeaders, request);
   }
 
   @POST
   @Produces(MediaType.APPLICATION_JSON)
+  @Authorize(targetType = TargetType.TABLE, paramName = "schemaName", action = Actions.Table.CREATE_SCHEMA)
   @Path("/v2/schemas")
   @ApiOperation(value = "Add a new schema", notes = "Adds a new schema")
   @ApiResponses(value = {
@@ -345,7 +351,6 @@ public class PinotSchemaRestletResource {
       @ApiResponse(code = 400, message = "Missing or invalid request body"),
       @ApiResponse(code = 500, message = "Internal error")
   })
-  @ManualAuthorization // performed after parsing schema
   public ConfigSuccessResponse addSchema(
       @ApiParam(value = "Schema name for the schema to create", required = true)
       @QueryParam("schemaName") String schemaName,
@@ -360,14 +365,6 @@ public class PinotSchemaRestletResource {
         getSchemaAndUnrecognizedPropertiesFromMultiPart(multiPart);
     Schema schema = schemaAndUnrecognizedProps.getLeft();
     schema.setSchemaName(schemaName);
-    String endpointUrl = request.getRequestURL().toString();
-    validateSchemaName(schema.getSchemaName());
-    AccessControlUtils.validatePermission(schema.getSchemaName(), AccessType.CREATE, httpHeaders, endpointUrl,
-        _accessControlFactory.create());
-    if (!_accessControlFactory.create()
-        .hasAccess(httpHeaders, TargetType.TABLE, schema.getSchemaName(), Actions.Table.CREATE_SCHEMA)) {
-      throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
-    }
     SuccessResponse successResponse = addSchema(schema, override, force);
     return new ConfigSuccessResponse(successResponse.getStatus(), schemaAndUnrecognizedProps.getRight());
   }
@@ -401,17 +398,23 @@ public class PinotSchemaRestletResource {
       throw new ControllerApplicationException(LOGGER, msg, Response.Status.BAD_REQUEST, e);
     }
     Schema schema = schemaAndUnrecognizedProperties.getLeft();
-    try {
-      return addSchema(_pinotHelixResourceManager.getActualTableName(schema.getSchemaName(),
-          httpHeaders.getHeaderString(Constants.DATABASE)), override, force, schemaJsonString, httpHeaders, request);
-    } catch (IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
+    String schemaName = _pinotHelixResourceManager.getActualTableName(schema.getSchemaName(),
+        httpHeaders.getHeaderString(Constants.DATABASE));
+    String endpointUrl = request.getRequestURL().toString();
+    validateSchemaName(schemaName);
+    AccessControlUtils.validatePermission(schemaName, AccessType.CREATE, httpHeaders, endpointUrl,
+        _accessControlFactory.create());
+    if (!_accessControlFactory.create()
+        .hasAccess(httpHeaders, TargetType.TABLE, schemaName, Actions.Table.CREATE_SCHEMA)) {
+      throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
     }
+    return addSchema(schemaName, override, force, schemaJsonString, httpHeaders, request);
   }
 
   @POST
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Authorize(targetType = TargetType.TABLE, paramName = "schemaName", action = Actions.Table.CREATE_SCHEMA)
   @Path("/v2/schemas")
   @ApiOperation(value = "Add a new schema", notes = "Adds a new schema")
   @ApiResponses(value = {
@@ -420,7 +423,6 @@ public class PinotSchemaRestletResource {
       @ApiResponse(code = 400, message = "Missing or invalid request body"),
       @ApiResponse(code = 500, message = "Internal error")
   })
-  @ManualAuthorization // performed after parsing schema
   public ConfigSuccessResponse addSchema(
       @ApiParam(value = "Schema name for the schema to create", required = true)
       @QueryParam("schemaName") String schemaName,
@@ -431,7 +433,7 @@ public class PinotSchemaRestletResource {
       String schemaJsonString,
       @Context HttpHeaders httpHeaders,
       @Context Request request) {
-    Pair<Schema, Map<String, Object>> schemaAndUnrecognizedProperties = null;
+    Pair<Schema, Map<String, Object>> schemaAndUnrecognizedProperties;
     try {
       schemaAndUnrecognizedProperties =
           JsonUtils.stringToObjectAndUnrecognizedProperties(schemaJsonString, Schema.class);
@@ -441,14 +443,6 @@ public class PinotSchemaRestletResource {
     }
     Schema schema = schemaAndUnrecognizedProperties.getLeft();
     schema.setSchemaName(schemaName);
-    String endpointUrl = request.getRequestURL().toString();
-    validateSchemaName(schemaName);
-    AccessControlUtils.validatePermission(schemaName, AccessType.CREATE, httpHeaders, endpointUrl,
-        _accessControlFactory.create());
-    if (!_accessControlFactory.create()
-        .hasAccess(httpHeaders, TargetType.TABLE, schemaName, Actions.Table.CREATE_SCHEMA)) {
-      throw new ControllerApplicationException(LOGGER, "Permission denied", Response.Status.FORBIDDEN);
-    }
     SuccessResponse successResponse = addSchema(schema, override, force);
     return new ConfigSuccessResponse(successResponse.getStatus(), schemaAndUnrecognizedProperties.getRight());
   }

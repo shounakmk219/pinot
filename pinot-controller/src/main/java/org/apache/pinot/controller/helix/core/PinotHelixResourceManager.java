@@ -1622,7 +1622,7 @@ public class PinotHelixResourceManager {
 
   public List<String> getSchemaNames(String databaseName) {
     return _propertyStore.getChildNames(
-            PinotHelixPropertyStoreZnRecordProvider.forSchema(_propertyStore).getRelativePath(), AccessOption.PERSISTENT)
+        PinotHelixPropertyStoreZnRecordProvider.forSchema(_propertyStore).getRelativePath(), AccessOption.PERSISTENT)
         .stream().filter(schemaName -> isPartOfDatabase(schemaName, databaseName))
         .collect(Collectors.toList());
   }
@@ -4050,9 +4050,11 @@ public class PinotHelixResourceManager {
         Map<String, String> brokersToState = tableToBrokersEntry.getValue();
         List<InstanceInfo> hosts = new ArrayList<>();
         for (Map.Entry<String, String> brokerEntry : brokersToState.entrySet()) {
-          if ("ONLINE".equalsIgnoreCase(brokerEntry.getValue()) && instanceConfigMap.containsKey(brokerEntry.getKey())) {
+          if ("ONLINE".equalsIgnoreCase(brokerEntry.getValue())
+              && instanceConfigMap.containsKey(brokerEntry.getKey())) {
             InstanceConfig instanceConfig = instanceConfigMap.get(brokerEntry.getKey());
-            hosts.add(new InstanceInfo(instanceConfig.getInstanceName(), instanceConfig.getHostName(), Integer.parseInt(instanceConfig.getPort())));
+            hosts.add(new InstanceInfo(instanceConfig.getInstanceName(), instanceConfig.getHostName(),
+                Integer.parseInt(instanceConfig.getPort())));
           }
         }
         if (!hosts.isEmpty()) {

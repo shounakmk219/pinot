@@ -84,9 +84,13 @@ import static org.apache.pinot.spi.utils.CommonConstants.SWAGGER_AUTHORIZATION_K
  * Endpoints for CRUD of {@link TableConfigs}.
  * {@link TableConfigs} is a group of the offline table config, realtime table config and schema for the same tableName.
  */
-@Api(tags = Constants.TABLE_TAG, authorizations = {@Authorization(value = SWAGGER_AUTHORIZATION_KEY)})
-@SwaggerDefinition(securityDefinition = @SecurityDefinition(apiKeyAuthDefinitions = @ApiKeyAuthDefinition(name =
-    HttpHeaders.AUTHORIZATION, in = ApiKeyAuthDefinition.ApiKeyLocation.HEADER, key = SWAGGER_AUTHORIZATION_KEY)))
+@Api(tags = Constants.TABLE_TAG, authorizations = {@Authorization(value = SWAGGER_AUTHORIZATION_KEY),
+    @Authorization(value = Constants.DATABASE)})
+@SwaggerDefinition(securityDefinition = @SecurityDefinition(apiKeyAuthDefinitions = {
+    @ApiKeyAuthDefinition(name = HttpHeaders.AUTHORIZATION, in = ApiKeyAuthDefinition.ApiKeyLocation.HEADER,
+        key = SWAGGER_AUTHORIZATION_KEY),
+    @ApiKeyAuthDefinition(name = Constants.DATABASE, in = ApiKeyAuthDefinition.ApiKeyLocation.HEADER,
+        key = Constants.DATABASE)}))
 @Path("/")
 public class TableConfigsRestletResource {
 
@@ -371,8 +375,8 @@ public class TableConfigsRestletResource {
       if (tableExists || schemaExists) {
         return new SuccessResponse("Deleted TableConfigs: " + tableName);
       } else {
-        return new SuccessResponse("TableConfigs: " + tableName +
-            " don't exist. Invoked delete anyway to clean stale metadata/segments");
+        return new SuccessResponse("TableConfigs: " + tableName
+            + " don't exist. Invoked delete anyway to clean stale metadata/segments");
       }
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR, e);

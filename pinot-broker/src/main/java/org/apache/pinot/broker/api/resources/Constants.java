@@ -21,6 +21,5 @@ package org.apache.pinot.broker.api.resources;
 public class Constants {
   private Constants() {
   }
-
   public static final String DATABASE = "database";
 }

@@ -38,6 +38,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -78,6 +79,24 @@ public class PinotTableInstances {
   })
   public String getTableInstances(
       @ApiParam(value = "Table name without type", required = true) @PathParam("tableName") String tableName,
+      @ApiParam(value = "Instance type", example = "broker", allowableValues = "BROKER, SERVER") @DefaultValue("")
+      @QueryParam("type") String type, @Context HttpHeaders headers) {
+    tableName = _pinotHelixResourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return getTableInstancesV2(tableName, type);
+  }
+
+  @GET
+  @Path("/v2/tables/instances")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.GET_INSTANCE)
+  @Produces(MediaType.APPLICATION_JSON)
+  @ApiOperation(value = "List table instances", notes = "List instances of the given table")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 404, message = "Table not found"),
+      @ApiResponse(code = 500, message = "Internal server error")
+  })
+  public String getTableInstancesV2(
+      @ApiParam(value = "Table name without type", required = true) @QueryParam("tableName") String tableName,
       @ApiParam(value = "Instance type", example = "broker", allowableValues = "BROKER, SERVER") @DefaultValue("")
       @QueryParam("type") String type) {
     ObjectNode ret = JsonUtils.newObjectNode();
@@ -148,7 +167,24 @@ public class PinotTableInstances {
   })
   public List<String> getLiveBrokersForTable(
       @ApiParam(value = "Table name (with or without type)", required = true)
-      @PathParam("tableName") String tableName) {
+      @PathParam("tableName") String tableName, @Context HttpHeaders headers) {
+    tableName = _pinotHelixResourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return getLiveBrokersForTableV2(tableName);
+  }
+
+  @GET
+  @Path("/v2/tables/livebrokers")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.GET_BROKER)
+  @Produces(MediaType.APPLICATION_JSON)
+  @ApiOperation(value = "List the brokers serving a table", notes = "List live brokers of the given table based on EV")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 404, message = "Table not found"),
+      @ApiResponse(code = 500, message = "Internal server error")
+  })
+  public List<String> getLiveBrokersForTableV2(
+      @ApiParam(value = "Table name (with or without type)", required = true)
+      @QueryParam("tableName") String tableName) {
     try {
       return _pinotHelixResourceManager.getLiveBrokersForTable(tableName);
     } catch (TableNotFoundException e) {
@@ -165,9 +201,9 @@ public class PinotTableInstances {
   @ApiResponses(value = {
       @ApiResponse(code = 200, message = "Success"), @ApiResponse(code = 500, message = "Internal server error")
   })
-  public Map<String, List<InstanceInfo>> getLiveBrokers() {
+  public Map<String, List<InstanceInfo>> getLiveBrokers(@Context HttpHeaders headers) {
     try {
-      return _pinotHelixResourceManager.getTableToLiveBrokersMapping();
+      return _pinotHelixResourceManager.getTableToLiveBrokersMapping(headers.getHeaderString(Constants.DATABASE));
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.NOT_FOUND);
     }

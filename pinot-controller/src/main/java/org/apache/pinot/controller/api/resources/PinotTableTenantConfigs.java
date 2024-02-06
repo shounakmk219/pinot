@@ -32,6 +32,8 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -75,7 +77,26 @@ public class PinotTableTenantConfigs {
       @ApiResponse(code = 500, message = "Internal error rebuilding broker resource or serializing response")
   })
   public SuccessResponse rebuildBrokerResource(
-      @ApiParam(value = "Table name (with type)", required = true) @PathParam("tableName") String tableNameWithType) {
+      @ApiParam(value = "Table name (with type)", required = true) @PathParam("tableName") String tableNameWithType,
+      @Context HttpHeaders headers) {
+    tableNameWithType = _helixResourceManager.getActualTableName(tableNameWithType,
+        headers.getHeaderString(Constants.DATABASE));
+    return rebuildBrokerResourceV2(tableNameWithType);
+  }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Authenticate(AccessType.UPDATE)
+  @Path("/v2/tables/rebuildBrokerResourceFromHelixTags")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.REBUILD_BROKER_RESOURCE)
+  @ApiOperation(value = "Rebuild broker resource for table", notes = "when new brokers are added")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 400, message = "Bad request: table name has to be with table type"),
+      @ApiResponse(code = 500, message = "Internal error rebuilding broker resource or serializing response")
+  })
+  public SuccessResponse rebuildBrokerResourceV2(
+      @ApiParam(value = "Table name (with type)", required = true) @QueryParam("tableName") String tableNameWithType) {
     try {
       final PinotResourceManagerResponse pinotResourceManagerResponse =
           _helixResourceManager.rebuildBrokerResourceFromHelixTags(tableNameWithType);

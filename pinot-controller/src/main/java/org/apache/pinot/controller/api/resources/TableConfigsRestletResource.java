@@ -116,9 +116,9 @@ public class TableConfigsRestletResource {
   @Authenticate(AccessType.READ)
   @ApiOperation(value = "Lists all TableConfigs in cluster", notes = "Lists all TableConfigs in cluster")
   public String listConfigs(@Context HttpHeaders headers) {
-    String databaseId = headers.getHeaderString(Constants.DATABASE);
+    String databaseName = headers.getHeaderString(Constants.DATABASE);
     try {
-      List<String> rawTableNames = _pinotHelixResourceManager.getAllRawTables(databaseId);
+      List<String> rawTableNames = _pinotHelixResourceManager.getAllRawTables(databaseName);
       Collections.sort(rawTableNames);
 
       ArrayNode configsList = JsonUtils.newArrayNode();

@@ -131,12 +131,8 @@ public class PinotSchemaRestletResource {
   public String getSchema(
       @ApiParam(value = "Schema name", required = true) @PathParam("schemaName") String schemaName,
       @Context HttpHeaders headers) {
-    try {
-      return getSchema(
-          _pinotHelixResourceManager.getActualTableName(schemaName, headers.getHeaderString(Constants.DATABASE)));
-    } catch (IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
-    }
+    return getSchema(_pinotHelixResourceManager.getActualTableName(schemaName,
+        headers.getHeaderString(Constants.DATABASE)));
   }
 
   @GET
@@ -174,12 +170,8 @@ public class PinotSchemaRestletResource {
   public SuccessResponse deleteSchema(
       @ApiParam(value = "Schema name", required = true) @PathParam("schemaName") String schemaName,
       @Context HttpHeaders headers) {
-    try {
-      return deleteSchema(
-          _pinotHelixResourceManager.getActualTableName(schemaName, headers.getHeaderString(Constants.DATABASE)));
-    } catch (IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
-    }
+    return deleteSchema(_pinotHelixResourceManager.getActualTableName(schemaName,
+        headers.getHeaderString(Constants.DATABASE)));
   }
 
   @DELETE
@@ -216,13 +208,9 @@ public class PinotSchemaRestletResource {
       @ApiParam(value = "Name of the schema", required = true) @PathParam("schemaName") String schemaName,
       @ApiParam(value = "Whether to reload the table if the new schema is backward compatible") @DefaultValue("false")
       @QueryParam("reload") boolean reload, @Context HttpHeaders headers, FormDataMultiPart multiPart) {
-    try {
-      return updateSchema(
-          _pinotHelixResourceManager.getActualTableName(schemaName, headers.getHeaderString(Constants.DATABASE)),
-          reload, multiPart);
-    } catch (IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
-    }
+    return updateSchema(
+        _pinotHelixResourceManager.getActualTableName(schemaName, headers.getHeaderString(Constants.DATABASE)),
+        reload, multiPart);
   }
 
   @PUT
@@ -266,13 +254,9 @@ public class PinotSchemaRestletResource {
       @ApiParam(value = "Name of the schema", required = true) @PathParam("schemaName") String schemaName,
       @ApiParam(value = "Whether to reload the table if the new schema is backward compatible") @DefaultValue("false")
       @QueryParam("reload") boolean reload, @Context HttpHeaders headers, String schemaJsonString) {
-    try {
-      return updateSchema(
-          _pinotHelixResourceManager.getActualTableName(schemaName, headers.getHeaderString(Constants.DATABASE)),
-          reload, schemaJsonString);
-    } catch (IllegalArgumentException e) {
-      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.BAD_REQUEST, e);
-    }
+    return updateSchema(
+        _pinotHelixResourceManager.getActualTableName(schemaName, headers.getHeaderString(Constants.DATABASE)),
+        reload, schemaJsonString);
   }
 
   @PUT

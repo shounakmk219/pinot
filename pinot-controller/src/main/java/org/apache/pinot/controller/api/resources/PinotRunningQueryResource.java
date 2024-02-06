@@ -166,7 +166,8 @@ public class PinotRunningQueryResource {
       @ApiParam(value = "Timeout for brokers to return running queries") @QueryParam("timeoutMs") @DefaultValue("3000")
           int timeoutMs, @Context HttpHeaders httpHeaders) {
     try {
-      Map<String, List<InstanceInfo>> tableBrokers = _pinotHelixResourceManager.getTableToLiveBrokersMapping();
+      Map<String, List<InstanceInfo>> tableBrokers =
+          _pinotHelixResourceManager.getTableToLiveBrokersMapping(httpHeaders.getHeaderString(Constants.DATABASE));
       Map<String, InstanceInfo> brokers = new HashMap<>();
       tableBrokers.values().forEach(list -> list.forEach(info -> brokers.putIfAbsent(getInstanceKey(info), info)));
       return getRunningQueries(brokers, timeoutMs, createRequestHeaders(httpHeaders));

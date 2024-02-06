@@ -32,6 +32,8 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -67,7 +69,23 @@ public class PinotTableSchema {
       @ApiResponse(code = 404, message = "Table not found")
   })
   public String getTableSchema(
-      @ApiParam(value = "Table name (without type)", required = true) @PathParam("tableName") String tableName) {
+      @ApiParam(value = "Table name (without type)", required = true) @PathParam("tableName") String tableName,
+      @Context HttpHeaders headers) {
+    tableName = _pinotHelixResourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return getTableSchemaV2(tableName);
+  }
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/v2/tables/schema")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.GET_SCHEMA)
+  @ApiOperation(value = "Get table schema", notes = "Read table schema")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 404, message = "Table not found")
+  })
+  public String getTableSchemaV2(
+      @ApiParam(value = "Table name (without type)", required = true) @QueryParam("tableName") String tableName) {
     Schema schema = _pinotHelixResourceManager.getTableSchema(tableName);
     if (schema != null) {
       return schema.toPrettyJsonString();

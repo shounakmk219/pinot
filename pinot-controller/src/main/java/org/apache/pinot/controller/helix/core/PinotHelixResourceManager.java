@@ -4020,10 +4020,19 @@ public class PinotHelixResourceManager {
   }
 
   /**
-   * Returns map of tableName to list of live brokers
+   * Returns map of tableName in default database to list of live brokers
    * @return Map of tableName to list of ONLINE brokers serving the table
    */
   public Map<String, List<InstanceInfo>> getTableToLiveBrokersMapping() {
+    return getTableToLiveBrokersMapping(null);
+  }
+
+  /**
+   * Returns map of tableName to list of live brokers
+   * @param databaseName database to get the tables from
+   * @return Map of tableName to list of ONLINE brokers serving the table
+   */
+  public Map<String, List<InstanceInfo>> getTableToLiveBrokersMapping(String databaseName) {
     ExternalView ev = _helixDataAccessor.getProperty(_keyBuilder.externalView(Helix.BROKER_RESOURCE_INSTANCE));
     if (ev == null) {
       throw new IllegalStateException("Failed to find external view for " + Helix.BROKER_RESOURCE_INSTANCE);
@@ -4037,17 +4046,18 @@ public class PinotHelixResourceManager {
     ZNRecord znRecord = ev.getRecord();
     for (Map.Entry<String, Map<String, String>> tableToBrokersEntry : znRecord.getMapFields().entrySet()) {
       String tableName = tableToBrokersEntry.getKey();
-      Map<String, String> brokersToState = tableToBrokersEntry.getValue();
-      List<InstanceInfo> hosts = new ArrayList<>();
-      for (Map.Entry<String, String> brokerEntry : brokersToState.entrySet()) {
-        if ("ONLINE".equalsIgnoreCase(brokerEntry.getValue()) && instanceConfigMap.containsKey(brokerEntry.getKey())) {
-          InstanceConfig instanceConfig = instanceConfigMap.get(brokerEntry.getKey());
-          hosts.add(new InstanceInfo(instanceConfig.getInstanceName(), instanceConfig.getHostName(),
-              Integer.parseInt(instanceConfig.getPort())));
+      if (isPartOfDatabase(tableName, databaseName)) {
+        Map<String, String> brokersToState = tableToBrokersEntry.getValue();
+        List<InstanceInfo> hosts = new ArrayList<>();
+        for (Map.Entry<String, String> brokerEntry : brokersToState.entrySet()) {
+          if ("ONLINE".equalsIgnoreCase(brokerEntry.getValue()) && instanceConfigMap.containsKey(brokerEntry.getKey())) {
+            InstanceConfig instanceConfig = instanceConfigMap.get(brokerEntry.getKey());
+            hosts.add(new InstanceInfo(instanceConfig.getInstanceName(), instanceConfig.getHostName(), Integer.parseInt(instanceConfig.getPort())));
+          }
         }
-      }
-      if (!hosts.isEmpty()) {
-        result.put(tableName, hosts);
+        if (!hosts.isEmpty()) {
+          result.put(tableName, hosts);
+        }
       }
     }
     return result;

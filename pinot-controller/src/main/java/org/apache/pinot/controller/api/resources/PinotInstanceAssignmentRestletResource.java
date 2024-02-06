@@ -43,6 +43,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -89,6 +90,19 @@ public class PinotInstanceAssignmentRestletResource {
   @ApiOperation(value = "Get the instance partitions")
   public Map<String, InstancePartitions> getInstancePartitions(
       @ApiParam(value = "Name of the table") @PathParam("tableName") String tableName,
+      @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable String type,
+      @Context HttpHeaders headers) {
+    tableName = _resourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return getInstancePartitionsV2(tableName, type);
+  }
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/v2/tables/instancePartitions")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.GET_INSTANCE_PARTITIONS)
+  @ApiOperation(value = "Get the instance partitions")
+  public Map<String, InstancePartitions> getInstancePartitionsV2(
+      @ApiParam(value = "Name of the table") @QueryParam("tableName") String tableName,
       @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable String type) {
     Map<String, InstancePartitions> instancePartitionsMap = new TreeMap<>();
 
@@ -158,6 +172,21 @@ public class PinotInstanceAssignmentRestletResource {
   @ApiOperation(value = "Assign server instances to a table")
   public Map<String, InstancePartitions> assignInstances(
       @ApiParam(value = "Name of the table") @PathParam("tableName") String tableName,
+      @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable String type,
+      @ApiParam(value = "Whether to do dry-run") @DefaultValue("false") @QueryParam("dryRun") boolean dryRun,
+      @Context HttpHeaders headers) {
+    tableName = _resourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return assignInstancesV2(tableName, type, dryRun);
+  }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/v2/tables/assignInstances")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.CREATE_INSTANCE_PARTITIONS)
+  @Authenticate(AccessType.CREATE)
+  @ApiOperation(value = "Assign server instances to a table")
+  public Map<String, InstancePartitions> assignInstancesV2(
+      @ApiParam(value = "Name of the table") @QueryParam("tableName") String tableName,
       @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable String type,
       @ApiParam(value = "Whether to do dry-run") @DefaultValue("false") @QueryParam("dryRun") boolean dryRun) {
     Map<String, InstancePartitions> instancePartitionsMap = new TreeMap<>();
@@ -315,7 +344,20 @@ public class PinotInstanceAssignmentRestletResource {
   @Authenticate(AccessType.UPDATE)
   @ApiOperation(value = "Create/update the instance partitions")
   public Map<String, InstancePartitions> setInstancePartitions(
-      @ApiParam(value = "Name of the table") @PathParam("tableName") String tableName, String instancePartitionsStr) {
+      @ApiParam(value = "Name of the table") @PathParam("tableName") String tableName, String instancePartitionsStr,
+      @Context HttpHeaders headers) {
+    tableName = _resourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return setInstancePartitionsV2(tableName, instancePartitionsStr);
+  }
+
+  @PUT
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/v2/tables/instancePartitions")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.UPDATE_INSTANCE_PARTITIONS)
+  @Authenticate(AccessType.UPDATE)
+  @ApiOperation(value = "Create/update the instance partitions")
+  public Map<String, InstancePartitions> setInstancePartitionsV2(
+      @ApiParam(value = "Name of the table") @QueryParam("tableName") String tableName, String instancePartitionsStr) {
     InstancePartitions instancePartitions;
     try {
       instancePartitions = JsonUtils.stringToObject(instancePartitionsStr, InstancePartitions.class);
@@ -372,7 +414,21 @@ public class PinotInstanceAssignmentRestletResource {
   public SuccessResponse removeInstancePartitions(
       @ApiParam(value = "Name of the table") @PathParam("tableName") String tableName,
       @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable
-          String instancePartitionsType) {
+      String instancePartitionsType, @Context HttpHeaders headers) {
+    tableName = _resourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return removeInstancePartitionsV2(tableName, instancePartitionsType);
+  }
+
+  @DELETE
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/v2/tables/instancePartitions")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.DELETE_INSTANCE_PARTITIONS)
+  @Authenticate(AccessType.DELETE)
+  @ApiOperation(value = "Remove the instance partitions")
+  public SuccessResponse removeInstancePartitionsV2(
+      @ApiParam(value = "Name of the table") @QueryParam("tableName") String tableName,
+      @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable
+      String instancePartitionsType) {
     String rawTableName = TableNameBuilder.extractRawTableName(tableName);
     TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableName);
     if (tableType != TableType.REALTIME && (InstancePartitionsType.OFFLINE.toString().equals(instancePartitionsType)
@@ -425,14 +481,31 @@ public class PinotInstanceAssignmentRestletResource {
   @ApiOperation(value = "Replace an instance in the instance partitions")
   public Map<String, InstancePartitions> replaceInstance(
       @ApiParam(value = "Name of the table") @PathParam("tableName") String tableName,
-      @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable
-          String type,
+      @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable String type,
       @ApiParam(value = "Old instance to be replaced", required = true) @QueryParam("oldInstanceId")
           String oldInstanceId,
       @ApiParam(value = "New instance to replace with", required = true) @QueryParam("newInstanceId")
-          String newInstanceId) {
+          String newInstanceId, @Context HttpHeaders headers) {
+    tableName = _resourceManager.getActualTableName(tableName, headers.getHeaderString(Constants.DATABASE));
+    return replaceInstanceV2(tableName, type, oldInstanceId, newInstanceId);
+  }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/v2/tables/replaceInstance")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.UPDATE_INSTANCE_PARTITIONS)
+  @Authenticate(AccessType.CREATE)
+  @ApiOperation(value = "Replace an instance in the instance partitions")
+  public Map<String, InstancePartitions> replaceInstanceV2(
+      @ApiParam(value = "Name of the table") @QueryParam("tableName") String tableName,
+      @ApiParam(value = "OFFLINE|CONSUMING|COMPLETED|tier name") @QueryParam("type") @Nullable
+      String type,
+      @ApiParam(value = "Old instance to be replaced", required = true) @QueryParam("oldInstanceId")
+      String oldInstanceId,
+      @ApiParam(value = "New instance to replace with", required = true) @QueryParam("newInstanceId")
+      String newInstanceId) {
     Map<String, InstancePartitions> instancePartitionsMap =
-        getInstancePartitions(tableName, type);
+        getInstancePartitionsV2(tableName, type);
     Iterator<InstancePartitions> iterator = instancePartitionsMap.values().iterator();
     while (iterator.hasNext()) {
       InstancePartitions instancePartitions = iterator.next();

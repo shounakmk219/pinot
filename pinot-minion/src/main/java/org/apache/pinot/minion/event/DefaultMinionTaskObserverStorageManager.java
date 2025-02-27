@@ -38,8 +38,8 @@ public class DefaultMinionTaskObserverStorageManager implements MinionTaskObserv
   public static final String MAX_NUM_STATUS_TO_TRACK = "pinot.minion.task.maxNumStatusToTrack";
   public static final int DEFAULT_MAX_NUM_STATUS_TO_TRACK = 128;
 
-  private final Map<String, MinionTaskBaseObserverStats> _minionTaskProgressStatsMap = new HashMap<>();
-  private int _maxNumStatusToTrack;
+  protected final Map<String, MinionTaskBaseObserverStats> _minionTaskProgressStatsMap = new HashMap<>();
+  protected int _maxNumStatusToTrack;
 
   private static final DefaultMinionTaskObserverStorageManager DEFAULT_INSTANCE;
   static {
@@ -68,7 +68,7 @@ public class DefaultMinionTaskObserverStorageManager implements MinionTaskObserv
   @Override
   public MinionTaskBaseObserverStats getTaskProgress(String taskId) {
     if (StringUtils.isNotEmpty(taskId) && _minionTaskProgressStatsMap.containsKey(taskId)) {
-      return new MinionTaskBaseObserverStats(_minionTaskProgressStatsMap.get(taskId));
+      return _minionTaskProgressStatsMap.get(taskId).clone();
     }
     return null;
   }

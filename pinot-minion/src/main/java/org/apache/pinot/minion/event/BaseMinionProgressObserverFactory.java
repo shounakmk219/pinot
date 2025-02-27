@@ -19,6 +19,7 @@
 package org.apache.pinot.minion.event;
 
 import org.apache.pinot.minion.executor.MinionTaskZkMetadataManager;
+import org.apache.pinot.spi.tasks.MinionTaskBaseObserverStats;
 import org.apache.pinot.spi.tasks.MinionTaskObserverStorageManager;
 
 
@@ -47,10 +48,18 @@ public abstract class BaseMinionProgressObserverFactory implements MinionEventOb
   public abstract String getTaskType();
 
   /**
+   * Returns the observer stats object to use to track progress in the event observer.
+   */
+  protected MinionTaskBaseObserverStats getMinionTaskObserverStats() {
+    return new MinionTaskBaseObserverStats();
+  }
+
+  /**
    * Creates a new task event observer.
    */
   public MinionEventObserver create() {
-    MinionProgressObserver observer = new MinionProgressObserver();
+    MinionProgressObserver observer = new MinionProgressObserver(getMinionTaskObserverStats());
+//    MinionProgressObserver observer = new MinionProgressObserver();
     observer.init(_taskProgressManager);
     return observer;
   }

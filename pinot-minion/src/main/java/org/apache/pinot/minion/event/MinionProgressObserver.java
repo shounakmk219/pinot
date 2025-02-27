@@ -39,8 +39,16 @@ import org.slf4j.LoggerFactory;
 public class MinionProgressObserver extends DefaultMinionEventObserver {
   private static final Logger LOGGER = LoggerFactory.getLogger(MinionProgressObserver.class);
 
-  protected final MinionTaskBaseObserverStats _taskProgressStats = new MinionTaskBaseObserverStats();
+  protected final MinionTaskBaseObserverStats _taskProgressStats;
   protected String _taskId;
+
+  public MinionProgressObserver() {
+    this(new MinionTaskBaseObserverStats());
+  }
+
+  public MinionProgressObserver(MinionTaskBaseObserverStats taskProgressStats) {
+    _taskProgressStats = taskProgressStats;
+  }
 
   @Override
   public synchronized void notifyTaskStart(PinotTaskConfig pinotTaskConfig) {
@@ -72,6 +80,7 @@ public class MinionProgressObserver extends DefaultMinionEventObserver {
       progressMessage = statusEntry.getStatus();
     } else if (progress instanceof MinionTaskBaseObserverStats) {
       MinionTaskBaseObserverStats stats = (MinionTaskBaseObserverStats) progress;
+      _taskProgressStats.updateStats(stats);
       // Only one progress log must be recorded at once and should not be bulked
       if (stats.getProgressLogs() != null) {
         statusEntry = stats.getProgressLogs().pollFirst();
@@ -166,7 +175,7 @@ public class MinionProgressObserver extends DefaultMinionEventObserver {
       // if no status entry provided, only update the task progress if the _taskProgressStats has updated values
       MinionTaskBaseObserverStats minionTaskObserverStats = _observerStorageManager.getTaskProgress(_taskId);
       if (minionTaskObserverStats != null && !minionTaskObserverStats.equals(_taskProgressStats)) {
-        _observerStorageManager.setTaskProgress(_taskId, new MinionTaskBaseObserverStats(_taskProgressStats));
+        _observerStorageManager.setTaskProgress(_taskId, _taskProgressStats.clone());
       }
       return;
     }
@@ -201,7 +210,7 @@ public class MinionProgressObserver extends DefaultMinionEventObserver {
       progressLogs = new LinkedList<>();
     }
     progressLogs.offer(statusEntry);
-    _observerStorageManager.setTaskProgress(_taskId, new MinionTaskBaseObserverStats(_taskProgressStats)
+    _observerStorageManager.setTaskProgress(_taskId, _taskProgressStats.clone()
         .setProgressLogs(progressLogs));
   }
 

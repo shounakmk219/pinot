@@ -19,6 +19,7 @@
 package org.apache.pinot.spi.tasks;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -36,6 +37,7 @@ import org.apache.pinot.spi.utils.JsonUtils;
  * Eventually the MinionProgressObserver should also accept object of MinionTaskBaseObserverStats to record progress
  *
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MinionTaskBaseObserverStats {
   protected String _taskId;
   protected String _currentStage;
@@ -56,6 +58,9 @@ public class MinionTaskBaseObserverStats {
     _endTimestamp = from.getEndTimestamp();
     _stageTimes = from.getStageTimes();
     _progressLogs = new LinkedList<>(from.getProgressLogs());
+  }
+
+  public void updateStats(MinionTaskBaseObserverStats from) {
   }
 
   public String getTaskId() {
@@ -132,11 +137,27 @@ public class MinionTaskBaseObserverStats {
   }
 
   @Override
+  public MinionTaskBaseObserverStats clone() {
+    return new MinionTaskBaseObserverStats(this);
+  }
+
+  @Override
+  public String toString() {
+    MinionTaskBaseObserverStats copy = this.clone();
+    copy.setProgressLogs(null);
+    try {
+      return JsonUtils.objectToString(copy);
+    } catch (JsonProcessingException e) {
+      return "{}";
+    }
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof MinionTaskBaseObserverStats)) {
       return false;
     }
     MinionTaskBaseObserverStats stats = (MinionTaskBaseObserverStats) o;

@@ -236,8 +236,8 @@ public class PinotTaskManager extends ControllerPeriodicTask<Void> {
     // responseMap holds the table to task name mapping.
     Map<String, String> responseMap = new HashMap<>();
     for (String tableNameWithType : tableNameWithTypes) {
-      MDC.put(GEN_ID_KEY, getGenerationId(taskType, tableNameWithType));
       try {
+        MDC.put(GEN_ID_KEY, getGenerationId(taskType, tableNameWithType));
         LOGGER.info("Trying to create tasks of type: {}, table: {}", taskType, tableNameWithType);
         TableConfig tableConfig = _pinotHelixResourceManager.getTableConfig(tableNameWithType);
         if (isExceedingResourceUtilizationLimits(tableNameWithType)) {
@@ -970,8 +970,8 @@ public class PinotTaskManager extends ControllerPeriodicTask<Void> {
     Map<String, List<PinotTaskConfig>> minionInstanceTagToTaskConfigs = new HashMap<>();
     for (TableConfig tableConfig : enabledTableConfigs) {
       String tableName = tableConfig.getTableName();
-      MDC.put(GEN_ID_KEY, getGenerationId(taskType, tableName));
       try {
+        MDC.put(GEN_ID_KEY, getGenerationId(taskType, tableName));
         if (isExceedingResourceUtilizationLimits(tableName)) {
           String message = "Skipping tasks generation as resource utilization is not within limits for table: "
               + tableName + ". Disk utilization for one or more servers hosting this table has exceeded the threshold. "

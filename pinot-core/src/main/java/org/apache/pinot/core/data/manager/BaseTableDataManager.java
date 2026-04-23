@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.collections4.CollectionUtils;
@@ -116,6 +117,7 @@ import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.ConsumingSegmentConsistencyModeListener;
+import org.apache.pinot.spi.utils.TimestampIndexUtils;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1569,8 +1571,25 @@ public abstract class BaseTableDataManager implements TableDataManager {
 
     Set<String> columnsInSegment = segmentMetadata.getAllColumns();
 
-    // Column is added
-    if (!columnsInSegment.containsAll(schema.getPhysicalColumnNames())) {
+    // Timestamp index changed: compare the set of $col$GRANULARITY columns expected by the current table config
+    // against those physically present in the segment. Any mismatch (granularity added, granularity removed, or
+    // index fully removed) means the segment must be reloaded so SegmentPreProcessor can add/drop the derived
+    // columns. This check runs before the generic "column added" check to prevent $col$GRANULARITY columns from
+    // being misreported as "column added" when a timestamp index is first configured.
+    Set<String> expectedTimestampColumns = TimestampIndexUtils.extractColumnsWithGranularity(tableConfig);
+    Set<String> segmentTimestampColumns = segmentPhysicalColumns.stream()
+        .filter(TimestampIndexUtils::isValidColumnWithGranularity)
+        .collect(Collectors.toSet());
+    if (!expectedTimestampColumns.equals(segmentTimestampColumns)) {
+      LOGGER.debug("tableNameWithType: {}, segmentName: {}, change: timestamp index", tableNameWithType, segmentName);
+      return new StaleSegment(segmentName, true, "timestamp index changed");
+    }
+
+    // Column is added (exclude $col$GRANULARITY columns, which are managed by the timestamp index check above)
+    Set<String> nonTimestampSchemaColumns = schema.getPhysicalColumnNames().stream()
+        .filter(col -> !TimestampIndexUtils.isValidColumnWithGranularity(col))
+        .collect(Collectors.toSet());
+    if (!columnsInSegment.containsAll(nonTimestampSchemaColumns)) {
       LOGGER.debug("tableNameWithType: {}, segmentName: {}, change: column added", tableNameWithType, segmentName);
       return new StaleSegment(segmentName, true, "column added");
     }
@@ -1623,6 +1642,12 @@ public abstract class BaseTableDataManager implements TableDataManager {
     }
 
     for (String columnName : segmentPhysicalColumns) {
+      // $col$GRANULARITY columns are fully managed by the dedicated timestamp index check above.
+      // Skip them here to avoid false positives on "column deleted", "range index changed", etc.
+      if (TimestampIndexUtils.isValidColumnWithGranularity(columnName)) {
+        continue;
+      }
+
       ColumnMetadata columnMetadata = segmentMetadata.getColumnMetadataFor(columnName);
       DataSource source = segment.getDataSource(columnName);
       assert columnMetadata != null && source != null;
